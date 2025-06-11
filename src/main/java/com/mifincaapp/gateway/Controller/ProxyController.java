@@ -59,7 +59,7 @@ public class ProxyController {
     // ------------------------- RUTA RAÍZ --------------------------
     @RequestMapping(method = RequestMethod.GET, path = "")
     public ResponseEntity<?> proxyRoot(HttpServletRequest request) {
-        return proxyRequest(request, usuariosApiUrl, false);
+        return proxyRequest(request, usuariosApiUrl, false, false);
     }
 
     // ------------------------- SOBRECARGA SIMPLE --------------------------
