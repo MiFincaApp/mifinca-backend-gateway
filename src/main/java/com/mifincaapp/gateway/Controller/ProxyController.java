@@ -48,7 +48,7 @@ public class ProxyController {
         return proxyRequest(request, usuariosApiUrl, true);
     }
 
-    @RequestMapping({"/ventas/**", "/fincas/**", "/admin/**"})
+    @RequestMapping({"/ventas/**", "/finca/**", "/admin/**"})
     public ResponseEntity<?> proxyInternos(HttpServletRequest request) {
         return proxyRequest(request, productosApiUrl, true);
     }
