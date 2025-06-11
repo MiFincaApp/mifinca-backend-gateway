@@ -78,11 +78,15 @@ public class ProxyController {
                 headers.add(name, value);
             }
 
-            // Validar que venga el header personalizado
-            if (!headers.containsKey("X-Custom-Header")) {
+            // Validar que venga el header USER-MIFINCA-CLIENT (case-insensitive)
+            boolean hasCustomHeader = headers.keySet().stream()
+                .anyMatch(h -> h.equalsIgnoreCase("USER-MIFINCA-CLIENT"));
+            
+            if (!hasCustomHeader) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body("Falta el header requerido: X-Custom-Header");
+                        .body("Falta el header requerido: USER-MIFINCA-CLIENT");
             }
+
 
             // Validar token si es necesario
             if (requireToken && !headers.containsKey("Authorization")) {
