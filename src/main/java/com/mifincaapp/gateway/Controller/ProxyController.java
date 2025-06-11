@@ -25,7 +25,6 @@ public class ProxyController {
     private final RestTemplate restTemplate = new RestTemplate();
 
     // ------------------------- RUTAS SIN TOKEN --------------------------
-
     @RequestMapping("/usuarios/login")
     public ResponseEntity<?> loginUsuario(HttpServletRequest request) {
         return proxyRequest(request, usuariosApiUrl, false);
@@ -42,7 +41,6 @@ public class ProxyController {
     }
 
     // ------------------------- RUTAS CON TOKEN --------------------------
-
     @RequestMapping("/usuarios/**")
     public ResponseEntity<?> proxyUsuarios(HttpServletRequest request) {
         return proxyRequest(request, usuariosApiUrl, true);
@@ -58,11 +56,24 @@ public class ProxyController {
         return proxyRequest(request, pagosApiUrl, true);
     }
 
-    // ------------------------- MÉTODO GENERAL --------------------------
+    // ------------------------- RUTA RAÍZ --------------------------
+    @RequestMapping(method = RequestMethod.GET, path = "")
+    public ResponseEntity<?> proxyRoot(HttpServletRequest request) {
+        return proxyRequest(request, usuariosApiUrl, false);
+    }
 
+    // ------------------------- SOBRECARGA SIMPLE --------------------------
+    /*private ResponseEntity<?> proxyRequest(HttpServletRequest request,
+            String targetBaseUrl,
+            boolean requireToken) {
+        return proxyRequest(request, targetBaseUrl, requireToken, true); // por defecto sí exige header
+    }
+    */
+
+    // ------------------------- MÉTODO GENERAL --------------------------
     private ResponseEntity<?> proxyRequest(HttpServletRequest request,
-                                           String targetBaseUrl,
-                                           boolean requireToken) {
+            String targetBaseUrl,
+            boolean requireToken) {
         try {
             // Construir la URL de destino
             String path = request.getRequestURI();
@@ -119,4 +130,3 @@ public class ProxyController {
         }
     }
 }
-
