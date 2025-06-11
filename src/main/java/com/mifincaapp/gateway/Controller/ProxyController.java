@@ -63,17 +63,18 @@ public class ProxyController {
     }
 
     // ------------------------- SOBRECARGA SIMPLE --------------------------
-    /*private ResponseEntity<?> proxyRequest(HttpServletRequest request,
+    private ResponseEntity<?> proxyRequest(HttpServletRequest request,
             String targetBaseUrl,
             boolean requireToken) {
         return proxyRequest(request, targetBaseUrl, requireToken, true); // por defecto sí exige header
     }
-    */
+    
 
     // ------------------------- MÉTODO GENERAL --------------------------
     private ResponseEntity<?> proxyRequest(HttpServletRequest request,
             String targetBaseUrl,
-            boolean requireToken) {
+            boolean requireToken,
+            boolean requireCustomHeader) {
         try {
             // Construir la URL de destino
             String path = request.getRequestURI();
