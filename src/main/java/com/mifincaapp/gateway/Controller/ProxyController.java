@@ -31,6 +31,11 @@ public class ProxyController {
         return proxyRequest(request, usuariosApiUrl, false);
     }
 
+    @RequestMapping("/usuarios/registro")
+    public ResponseEntity<?> loginUsuario(HttpServletRequest request) {
+        return proxyRequest(request, usuariosApiUrl, false);
+    }
+
     @RequestMapping("/productos/**")
     public ResponseEntity<?> proxyProductos(HttpServletRequest request) {
         return proxyRequest(request, productosApiUrl, false);
