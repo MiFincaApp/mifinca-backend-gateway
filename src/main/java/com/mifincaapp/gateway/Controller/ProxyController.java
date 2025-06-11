@@ -32,7 +32,7 @@ public class ProxyController {
     }
 
     @RequestMapping("/usuarios/registro")
-    public ResponseEntity<?> loginUsuario(HttpServletRequest request) {
+    public ResponseEntity<?> registroUsuario(HttpServletRequest request) {
         return proxyRequest(request, usuariosApiUrl, false);
     }
 
