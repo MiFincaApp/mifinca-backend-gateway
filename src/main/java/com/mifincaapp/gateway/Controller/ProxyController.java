@@ -41,6 +41,11 @@ public class ProxyController {
         return proxyRequest(request, productosApiUrl, false);
     }
 
+    @RequestMapping("/productos/finca/**")
+    public ResponseEntity<?> proxyProductosFinca(HttpServletRequest request) {
+        return proxyRequest(request, productosApiUrl, false); // SIN token
+    }
+
     // ------------------------- RUTAS CON TOKEN --------------------------
     @RequestMapping("/usuarios/**")
     public ResponseEntity<?> proxyUsuarios(HttpServletRequest request) {
@@ -122,17 +127,7 @@ public class ProxyController {
             }
 
             // Crear entidad con body binario + headers (manejo correcto de multipart/form-data)
-            InputStreamResource resource = new InputStreamResource(request.getInputStream()) {
-                public String getFilename() {
-                    return null;
-                }
-
-                public long contentLength() {
-                    return -1;
-                }
-            };
-
-            HttpEntity<InputStreamResource> entity = new HttpEntity<>(resource, headers);
+            HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
 
             // Redireccionar la petición
             return restTemplate.exchange(targetUrl, method, entity, byte[].class);
