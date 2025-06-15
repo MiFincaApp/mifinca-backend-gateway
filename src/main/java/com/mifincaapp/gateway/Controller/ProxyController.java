@@ -121,19 +121,7 @@ public class ProxyController {
             }
 
             // Crear entidad con body binario + headers (manejo correcto de multipart/form-data)
-            InputStreamResource resource = new InputStreamResource(request.getInputStream()) {
-                @Override
-                public String getFilename() {
-                    return null;
-                }
-            
-                @Override
-                public long contentLength() {
-                    return -1;
-                }
-            };
-
-HttpEntity<InputStreamResource> entity = new HttpEntity<>(resource, headers);
+            HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
 
             // Redireccionar la petición
             return restTemplate.exchange(targetUrl, method, entity, byte[].class);
