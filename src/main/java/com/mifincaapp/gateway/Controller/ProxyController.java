@@ -98,6 +98,7 @@ public class ProxyController {
         }
     }
 
+
     // ------------------------- RUTAS CON TOKEN --------------------------
     @RequestMapping("/usuarios/**")
     public ResponseEntity<?> proxyUsuarios(HttpServletRequest request) {
@@ -179,12 +180,11 @@ public class ProxyController {
             }
 
             // Crear entidad con body binario + headers (manejo correcto de multipart/form-data)
-            HttpEntity<InputStreamResource> entity;
+            HttpEntity<byte[]> entity;
             if (bodyBytes.length == 0) {
                 entity = new HttpEntity<>(headers);
             } else {
-                InputStreamResource resource = new InputStreamResource(request.getInputStream());
-                entity = new HttpEntity<>(resource, headers);
+                entity = new HttpEntity<>(bodyBytes, headers);
             }
 
             // Redireccionar la petición
