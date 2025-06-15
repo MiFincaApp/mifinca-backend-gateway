@@ -23,7 +23,11 @@ public class ProxyController {
     @Value("${api.pagos.url}")
     private String pagosApiUrl;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
+
+    public ProxyController(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
 
     // ------------------------- RUTAS SIN TOKEN --------------------------
     @RequestMapping("/usuarios/login")
