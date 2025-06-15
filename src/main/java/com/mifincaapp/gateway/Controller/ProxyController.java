@@ -8,6 +8,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.io.InputStream;
 import java.util.Enumeration;
+import org.springframework.core.io.InputStreamResource;
 
 @RestController
 @RequestMapping("/")
