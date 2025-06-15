@@ -8,7 +8,9 @@ import org.springframework.web.client.RestTemplate;
 
 import java.io.InputStream;
 import java.util.Enumeration;
-import org.springframework.core.io.InputStreamResource;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/")
@@ -45,9 +47,55 @@ public class ProxyController {
         return proxyRequest(request, productosApiUrl, false);
     }
 
-    @RequestMapping("/productos/finca/**")
-    public ResponseEntity<?> proxyProductosFinca(HttpServletRequest request) {
-        return proxyRequest(request, productosApiUrl, false); // SIN token
+    @PostMapping(value = "/productos/finca/{fincaId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> proxyCrearProducto(
+            @PathVariable Long fincaId,
+            @RequestPart("producto") String productoJson,
+            @RequestPart(value = "imagen", required = false) MultipartFile imagen,
+            @RequestHeader("USER-MIFINCA-CLIENT") String clientHeader
+    ) {
+        try {
+            // URL final que apunta al microservicio de productos
+            String targetUrl = productosApiUrl + "/productos/finca/" + fincaId;
+
+            // Construir multipart
+            MultiValueMap<String, Object> multipartBody = new LinkedMultiValueMap<>();
+
+            // Parte JSON
+            HttpHeaders jsonHeaders = new HttpHeaders();
+            jsonHeaders.setContentType(MediaType.APPLICATION_JSON);
+            multipartBody.add("producto", new HttpEntity<>(productoJson, jsonHeaders));
+
+            // Parte archivo
+            if (imagen != null && !imagen.isEmpty()) {
+                HttpHeaders fileHeaders = new HttpHeaders();
+                fileHeaders.setContentDispositionFormData("imagen", imagen.getOriginalFilename());
+                fileHeaders.setContentType(MediaType.MULTIPART_FORM_DATA);
+                multipartBody.add("imagen", new HttpEntity<>(imagen.getResource(), fileHeaders));
+            }
+
+            // Encabezados generales
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            headers.add("USER-MIFINCA-CLIENT", clientHeader);
+
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(multipartBody, headers);
+
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    targetUrl,
+                    HttpMethod.POST,
+                    requestEntity,
+                    byte[].class
+            );
+
+            return ResponseEntity.status(response.getStatusCode())
+                    .headers(response.getHeaders())
+                    .body(response.getBody());
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error reenviando multipart: " + e.getMessage());
+        }
     }
 
     // ------------------------- RUTAS CON TOKEN --------------------------
