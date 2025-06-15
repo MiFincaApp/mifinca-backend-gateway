@@ -131,11 +131,12 @@ public class ProxyController {
             }
 
             // Crear entidad con body binario + headers (manejo correcto de multipart/form-data)
-            HttpEntity<byte[]> entity;
+            HttpEntity<InputStreamResource> entity;
             if (bodyBytes.length == 0) {
                 entity = new HttpEntity<>(headers);
             } else {
-                entity = new HttpEntity<>(bodyBytes, headers);
+                InputStreamResource resource = new InputStreamResource(request.getInputStream());
+                entity = new HttpEntity<>(resource, headers);
             }
 
             // Redireccionar la petición
