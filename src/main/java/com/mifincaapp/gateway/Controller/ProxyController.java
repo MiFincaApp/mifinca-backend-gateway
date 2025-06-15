@@ -127,7 +127,12 @@ public class ProxyController {
             }
 
             // Crear entidad con body binario + headers (manejo correcto de multipart/form-data)
-            HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
+            HttpEntity<byte[]> entity;
+            if (bodyBytes.length == 0) {
+                entity = new HttpEntity<>(headers);
+            } else {
+                entity = new HttpEntity<>(bodyBytes, headers);
+            }
 
             // Redireccionar la petición
             return restTemplate.exchange(targetUrl, method, entity, byte[].class);
