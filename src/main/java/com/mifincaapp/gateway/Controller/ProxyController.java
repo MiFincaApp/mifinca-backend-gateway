@@ -101,6 +101,44 @@ public class ProxyController {
         }
     }
 
+    @PutMapping("/productos/{id}")
+    public ResponseEntity<?> proxyActualizarProducto(
+            @PathVariable Long id,
+            @RequestBody String productoJson,
+            @RequestHeader("USER-MIFINCA-CLIENT") String clientHeader
+    ) {
+        try {
+            // Construir URL destino
+            String targetUrl = productosApiUrl + "/productos/" + id;
+    
+            // Encabezados
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.add("USER-MIFINCA-CLIENT", clientHeader);
+    
+            // Crear entidad con JSON
+            HttpEntity<String> entity = new HttpEntity<>(productoJson, headers);
+    
+            // Ejecutar PUT a microservicio
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    targetUrl,
+                    HttpMethod.PUT,
+                    entity,
+                    byte[].class
+            );
+    
+            // Retornar la respuesta al cliente
+            return ResponseEntity.status(response.getStatusCode())
+                    .headers(response.getHeaders())
+                    .body(response.getBody());
+    
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error reenviando PUT /productos/{id}: " + e.getMessage());
+        }
+    }
+
+
     // ------------------------- RUTAS CON TOKEN --------------------------
 
     @RequestMapping("/usuarios/**")
