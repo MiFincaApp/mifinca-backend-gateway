@@ -8,11 +8,9 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.io.ByteArrayOutputStream;
-import javax.servlet.ServletInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
 
@@ -24,7 +22,7 @@ public class ProxyController {
     private String usuariosApiUrl;
 
     @Value("${api.productos.url}")
-    private String productosApiUrl; // Incluye admin, ventas, fincas, productos
+    private String productosApiUrl;
 
     @Value("${api.pagos.url}")
     private String pagosApiUrl;
@@ -69,12 +67,10 @@ public class ProxyController {
 
             MultiValueMap<String, Object> multipartBody = new LinkedMultiValueMap<>();
 
-            // Parte JSON
             HttpHeaders jsonHeaders = new HttpHeaders();
             jsonHeaders.setContentType(MediaType.APPLICATION_JSON);
             multipartBody.add("producto", new HttpEntity<>(productoJson, jsonHeaders));
 
-            // Parte imagen si existe
             if (imagen != null && !imagen.isEmpty()) {
                 HttpHeaders fileHeaders = new HttpHeaders();
                 fileHeaders.setContentDispositionFormData("imagen", imagen.getOriginalFilename());
@@ -112,48 +108,41 @@ public class ProxyController {
             @RequestHeader("USER-MIFINCA-CLIENT") String clientHeader
     ) {
         try {
-            // Guarda el cuerpo en memoria sin consumir el stream directamente
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            byte[] data = new byte[1024];
-            int bytesRead;
-            ServletInputStream inputStream = request.getInputStream();
-            while ((bytesRead = inputStream.read(data)) != -1) {
-                buffer.write(data, 0, bytesRead);
-            }
-            byte[] bodyBytes = buffer.toByteArray();
-    
+            ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(request);
+            wrapper.getParameterMap(); // fuerza el caching
+
+            byte[] bodyBytes = wrapper.getContentAsByteArray();
+
             if (bodyBytes.length == 0) {
                 return ResponseEntity.badRequest().body("El cuerpo JSON está vacío");
             }
-    
-            // Verifica lo que se está reenviando
+
             System.out.println("Body: " + new String(bodyBytes, StandardCharsets.UTF_8));
-    
+
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.add("USER-MIFINCA-CLIENT", clientHeader);
-    
+
             HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
-    
+
             String targetUrl = productosApiUrl + "/productos/" + id;
-    
+
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     targetUrl,
                     HttpMethod.PUT,
                     entity,
                     byte[].class
             );
-    
+
             return ResponseEntity.status(response.getStatusCode())
                     .headers(response.getHeaders())
                     .body(response.getBody());
-    
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error reenviando PUT /productos/{id}: " + e.getMessage());
         }
     }
-
 
     // ------------------------- RUTAS CON TOKEN --------------------------
 
@@ -167,19 +156,16 @@ public class ProxyController {
         return proxyRequest(request, productosApiUrl, true);
     }
 
-    // ------------------------- RUTA RAÍZ --------------------------
-
     @RequestMapping(method = RequestMethod.GET, path = "")
     public ResponseEntity<?> proxyRoot(HttpServletRequest request) {
         return proxyRequest(request, usuariosApiUrl, false, false);
     }
 
-    // ------------------------- MÉTODOS SOBRECARGADOS --------------------------
+    // ------------------------- MÉTODOS AUXILIARES --------------------------
 
     private ResponseEntity<?> proxyRequest(HttpServletRequest request,
                                            String targetBaseUrl,
                                            boolean requireToken) {
-        // Por defecto, validamos el header personalizado
         return proxyRequest(request, targetBaseUrl, requireToken, true);
     }
 
@@ -197,7 +183,6 @@ public class ProxyController {
 
             HttpHeaders headers = new HttpHeaders();
             Enumeration<String> headerNames = request.getHeaderNames();
-
             while (headerNames.hasMoreElements()) {
                 String name = headerNames.nextElement();
                 String value = request.getHeader(name);
@@ -218,10 +203,8 @@ public class ProxyController {
                         .body("Token JWT requerido en Authorization header");
             }
 
-            HttpMethod method;
-            try {
-                method = HttpMethod.valueOf(request.getMethod().toUpperCase());
-            } catch (IllegalArgumentException e) {
+            HttpMethod method = HttpMethod.resolve(request.getMethod().toUpperCase());
+            if (method == null) {
                 return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
                         .body("Método HTTP no soportado: " + request.getMethod());
             }
