@@ -109,22 +109,30 @@ public class ProxyController {
             @RequestHeader("USER-MIFINCA-CLIENT") String clientHeader
     ) {
         try {
-            byte[] bodyBytes = request.getInputStream().readAllBytes();
+            // Guarda el cuerpo en memoria sin consumir el stream directamente
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] data = new byte[1024];
+            int bytesRead;
+            ServletInputStream inputStream = request.getInputStream();
+            while ((bytesRead = inputStream.read(data)) != -1) {
+                buffer.write(data, 0, bytesRead);
+            }
+            byte[] bodyBytes = buffer.toByteArray();
     
             if (bodyBytes.length == 0) {
                 return ResponseEntity.badRequest().body("El cuerpo JSON está vacío");
             }
     
-            System.out.println("Body JSON enviado: " + new String(bodyBytes, StandardCharsets.UTF_8));
-    
-            String targetUrl = productosApiUrl + "/productos/" + id;
+            // Verifica lo que se está reenviando
+            System.out.println("Body: " + new String(bodyBytes, StandardCharsets.UTF_8));
     
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setContentLength(bodyBytes.length); // ✅ Requerido para que Spring lo procese
             headers.add("USER-MIFINCA-CLIENT", clientHeader);
     
             HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
+    
+            String targetUrl = productosApiUrl + "/productos/" + id;
     
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     targetUrl,
