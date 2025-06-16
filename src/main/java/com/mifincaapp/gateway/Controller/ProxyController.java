@@ -100,6 +100,12 @@ public class ProxyController {
         }
     }
 
+    @PutMapping("/productos/**")
+    public ResponseEntity<?> proxyPutProductos(HttpServletRequest request) {
+        return proxyPutRequest(request, productosApiUrl, false);
+    }
+
+
     // ------------------------- RUTAS CON TOKEN --------------------------
 
     @RequestMapping("/usuarios/**")
@@ -191,6 +197,54 @@ public class ProxyController {
             return is.readAllBytes();
         } catch (Exception e) {
             return new byte[0];
+        }
+    }
+
+    private ResponseEntity<?> proxyPutRequest(HttpServletRequest request, String baseUrl) {
+        try {
+            // Construye URL destino
+            String path = request.getRequestURI(); // Ej: /productos/12
+            String query = request.getQueryString(); // ?id=1&x=2
+            String fullUrl = baseUrl + path + (query != null ? "?" + query : "");
+    
+            // Lee body como bytes
+            byte[] bodyBytes = request.getInputStream().readAllBytes();
+    
+            // Copia headers originales
+            HttpHeaders headers = new HttpHeaders();
+            Enumeration<String> headerNames = request.getHeaderNames();
+            while (headerNames.hasMoreElements()) {
+                String name = headerNames.nextElement();
+                String value = request.getHeader(name);
+                headers.add(name, value);
+            }
+    
+            // DEBUG opcional
+            System.out.println("🔁 Reenviando PUT a: " + fullUrl);
+            System.out.println("📦 Headers: " + headers);
+            System.out.println("📦 Body:\n" + new String(bodyBytes, StandardCharsets.UTF_8));
+    
+            // Enviar como entidad binaria
+            HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
+    
+            // Ejecuta el reenvío con RestTemplate
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    fullUrl,
+                    HttpMethod.PUT,
+                    entity,
+                    byte[].class
+            );
+    
+            // Devuelve la respuesta original del microservicio
+            return ResponseEntity
+                    .status(response.getStatusCode())
+                    .headers(response.getHeaders())
+                    .body(response.getBody());
+    
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("❌ Error reenviando PUT genérico: " + ex.getMessage());
         }
     }
 }
