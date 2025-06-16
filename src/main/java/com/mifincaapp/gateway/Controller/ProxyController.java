@@ -8,7 +8,6 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -101,47 +100,6 @@ public class ProxyController {
         }
     }
 
-    @PutMapping("/productos/{id}")
-    public ResponseEntity<?> proxyActualizarProductoConBodyCrudo(
-            @PathVariable Long id,
-            @RequestBody String body,
-            @RequestHeader("USER-MIFINCA-CLIENT") String clientHeader
-    ) {
-        try {
-            if (body == null || body.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body("El cuerpo JSON está vacío");
-            }
-    
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("USER-MIFINCA-CLIENT", clientHeader);
-    
-            HttpEntity<String> requestEntity = new HttpEntity<>(body, headers);
-    
-            String targetUrl = productosApiUrl + "/productos/" + id;
-    
-            System.out.println("➡️ Reenviando a: " + targetUrl);
-            System.out.println("➡️ Body: " + body);
-    
-            ResponseEntity<byte[]> response = restTemplate.exchange(
-                    targetUrl,
-                    HttpMethod.PUT,
-                    requestEntity,
-                    byte[].class
-            );
-    
-            return ResponseEntity.status(response.getStatusCode())
-                    .headers(response.getHeaders())
-                    .body(response.getBody());
-    
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error reenviando PUT /productos/{id}: " + e.getMessage());
-        }
-    }
-
-
     // ------------------------- RUTAS CON TOKEN --------------------------
 
     @RequestMapping("/usuarios/**")
@@ -159,7 +117,7 @@ public class ProxyController {
         return proxyRequest(request, usuariosApiUrl, false, false);
     }
 
-    // ------------------------- MÉTODOS AUXILIARES --------------------------
+    // ------------------------- MÉTODO AUXILIAR GENERAL --------------------------
 
     private ResponseEntity<?> proxyRequest(HttpServletRequest request,
                                            String targetBaseUrl,
@@ -176,8 +134,7 @@ public class ProxyController {
             String query = request.getQueryString();
             String targetUrl = targetBaseUrl + path + (query != null ? "?" + query : "");
 
-            InputStream is = request.getInputStream();
-            byte[] bodyBytes = is.readAllBytes();
+            byte[] bodyBytes = getRequestBody(request);
 
             HttpHeaders headers = new HttpHeaders();
             Enumeration<String> headerNames = request.getHeaderNames();
@@ -209,17 +166,31 @@ public class ProxyController {
                         .body("Método HTTP no soportado: " + request.getMethod());
             }
 
-            if (method == null) {
-                return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
-                        .body("Método HTTP no soportado: " + request.getMethod());
+            System.out.println("➡️ Reenviando a: " + targetUrl);
+            System.out.println("➡️ Método: " + method);
+            if (bodyBytes.length > 0) {
+                System.out.println("➡️ Cuerpo: " + new String(bodyBytes, StandardCharsets.UTF_8));
             }
 
             HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
-            return restTemplate.exchange(targetUrl, method, entity, byte[].class);
+            ResponseEntity<byte[]> response = restTemplate.exchange(targetUrl, method, entity, byte[].class);
+
+            return ResponseEntity.status(response.getStatusCode())
+                    .headers(response.getHeaders())
+                    .body(response.getBody());
 
         } catch (Exception ex) {
+            ex.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error al redirigir la petición: " + ex.getMessage());
+        }
+    }
+
+    private byte[] getRequestBody(HttpServletRequest request) {
+        try (InputStream is = request.getInputStream()) {
+            return is.readAllBytes();
+        } catch (Exception e) {
+            return new byte[0];
         }
     }
 }
