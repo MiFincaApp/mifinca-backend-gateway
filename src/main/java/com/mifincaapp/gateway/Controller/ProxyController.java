@@ -129,65 +129,66 @@ public class ProxyController {
 
     // ------------------------- MÉTODO GENERAL --------------------------
     private ResponseEntity<?> proxyRequest(HttpServletRequest request,
-            String targetBaseUrl,
-            boolean requireToken,
-            boolean requireCustomHeader) {
+                                           String targetBaseUrl,
+                                           boolean requireToken,
+                                           boolean requireCustomHeader) {
         try {
             // Construir la URL de destino
             String path = request.getRequestURI();
             String query = request.getQueryString();
             String targetUrl = targetBaseUrl + path + (query != null ? "?" + query : "");
-
-            // Leer el cuerpo como bytes (soporta raw, form-data, multipart, etc.)
+    
+            // Leer cuerpo como bytes
             InputStream is = request.getInputStream();
             byte[] bodyBytes = is.readAllBytes();
-
+    
             // Copiar headers originales
             HttpHeaders headers = new HttpHeaders();
             Enumeration<String> headerNames = request.getHeaderNames();
-
+    
             while (headerNames.hasMoreElements()) {
                 String name = headerNames.nextElement();
                 String value = request.getHeader(name);
                 headers.add(name, value);
             }
-
-            // Validar que venga el header USER-MIFINCA-CLIENT (case-insensitive)
+    
+            // Establecer Content-Type si no lo incluyó el navegador/lib cliente
+            String contentType = request.getContentType();
+            if (contentType != null && !headers.containsKey(HttpHeaders.CONTENT_TYPE)) {
+                headers.setContentType(MediaType.parseMediaType(contentType));
+            }
+    
+            // Validar USER-MIFINCA-CLIENT si es necesario
             if (requireCustomHeader) {
                 boolean hasCustomHeader = headers.keySet().stream()
                         .anyMatch(h -> h.equalsIgnoreCase("USER-MIFINCA-CLIENT"));
-
                 if (!hasCustomHeader) {
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                             .body("Falta el header requerido: USER-MIFINCA-CLIENT");
                 }
             }
-
-            // Validar token si es necesario
+    
+            // Validar Authorization si se requiere
             if (requireToken && !headers.containsKey("Authorization")) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body("Token JWT requerido en Authorization header");
             }
-
+    
             // Detectar método HTTP
-            HttpMethod method;
-            try {
-                method = HttpMethod.valueOf(request.getMethod().toUpperCase());
-            } catch (IllegalArgumentException e) {
+            HttpMethod method = HttpMethod.resolve(request.getMethod().toUpperCase());
+            if (method == null) {
                 return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
                         .body("Método HTTP no soportado: " + request.getMethod());
             }
-
-            // Crear entidad con body binario + headers (manejo correcto de multipart/form-data)
-            HttpEntity<byte[]> entity;
-            if (bodyBytes.length == 0) {
-                entity = new HttpEntity<>(headers);
-            } else {
-                entity = new HttpEntity<>(bodyBytes, headers);
-            }
-
-            // Redireccionar la petición
+    
+            // Crear entidad con o sin body
+            HttpEntity<?> entity = (bodyBytes.length > 0)
+                    ? new HttpEntity<>(bodyBytes, headers)
+                    : new HttpEntity<>(headers);
+    
+            // Enviar petición
             return restTemplate.exchange(targetUrl, method, entity, byte[].class);
+    
         } catch (Exception ex) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error al redirigir la petición: " + ex.getMessage());
