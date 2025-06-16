@@ -112,8 +112,6 @@ public class ProxyController {
                 return ResponseEntity.badRequest().body("El cuerpo JSON está vacío");
             }
     
-            System.out.println("Cuerpo recibido en Gateway: " + body);
-    
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("USER-MIFINCA-CLIENT", clientHeader);
@@ -121,6 +119,9 @@ public class ProxyController {
             HttpEntity<String> requestEntity = new HttpEntity<>(body, headers);
     
             String targetUrl = productosApiUrl + "/productos/" + id;
+    
+            System.out.println("➡️ Reenviando a: " + targetUrl);
+            System.out.println("➡️ Body: " + body);
     
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     targetUrl,
@@ -134,10 +135,12 @@ public class ProxyController {
                     .body(response.getBody());
     
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error reenviando PUT /productos/{id}: " + e.getMessage());
         }
     }
+
 
     // ------------------------- RUTAS CON TOKEN --------------------------
 
