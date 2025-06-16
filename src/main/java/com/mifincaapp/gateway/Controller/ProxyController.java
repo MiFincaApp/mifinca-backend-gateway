@@ -102,7 +102,7 @@ public class ProxyController {
 
     @PutMapping("/productos/**")
     public ResponseEntity<?> proxyPutProductos(HttpServletRequest request) {
-        return proxyPutRequest(request, productosApiUrl, false);
+        return proxyPutRequest(request, productosApiUrl);
     }
 
 
