@@ -50,7 +50,7 @@ public class ProxyController {
 
     @RequestMapping("/productos/**")
     public ResponseEntity<?> proxyProductos(HttpServletRequest request) {
-        return proxyRequest(request, productosApiUrl, false);
+        return proxyRequest(request, productosApiUrl, false, false);
     }
 
     @PostMapping(value = "/productos/finca/{fincaId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
