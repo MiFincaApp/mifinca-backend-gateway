@@ -200,17 +200,22 @@ public class ProxyController {
         }
     }
 
-    private ResponseEntity<?> proxyPutRequest(HttpServletRequest request, String baseUrl) {
+    private ResponseEntity<?> proxyPutRequestWithBody(HttpServletRequest request, String baseUrl) {
         try {
-            // Construye URL destino
-            String path = request.getRequestURI(); // Ej: /productos/12
-            String query = request.getQueryString(); // ?id=1&x=2
+            // Envolver el request para permitir múltiples lecturas del body
+            ContentCachingRequestWrapper wrappedRequest = new ContentCachingRequestWrapper(request);
+            wrappedRequest.getParameterMap(); // fuerza la caché del body
+    
+            String path = request.getRequestURI();
+            String query = request.getQueryString();
             String fullUrl = baseUrl + path + (query != null ? "?" + query : "");
     
-            // Lee body como bytes
-            byte[] bodyBytes = request.getInputStream().readAllBytes();
+            byte[] bodyBytes = wrappedRequest.getContentAsByteArray();
     
-            // Copia headers originales
+            if (bodyBytes == null || bodyBytes.length == 0) {
+                return ResponseEntity.badRequest().body("❌ El cuerpo JSON está vacío");
+            }
+    
             HttpHeaders headers = new HttpHeaders();
             Enumeration<String> headerNames = request.getHeaderNames();
             while (headerNames.hasMoreElements()) {
@@ -219,15 +224,13 @@ public class ProxyController {
                 headers.add(name, value);
             }
     
-            // DEBUG opcional
-            System.out.println("🔁 Reenviando PUT a: " + fullUrl);
-            System.out.println("📦 Headers: " + headers);
-            System.out.println("📦 Body:\n" + new String(bodyBytes, StandardCharsets.UTF_8));
+            headers.setContentType(MediaType.APPLICATION_JSON); // asegúrate que sea JSON
     
-            // Enviar como entidad binaria
             HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
     
-            // Ejecuta el reenvío con RestTemplate
+            System.out.println("🔁 Reenviando PUT a: " + fullUrl);
+            System.out.println("📦 Body enviado:\n" + new String(bodyBytes, StandardCharsets.UTF_8));
+    
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     fullUrl,
                     HttpMethod.PUT,
@@ -235,9 +238,7 @@ public class ProxyController {
                     byte[].class
             );
     
-            // Devuelve la respuesta original del microservicio
-            return ResponseEntity
-                    .status(response.getStatusCode())
+            return ResponseEntity.status(response.getStatusCode())
                     .headers(response.getHeaders())
                     .body(response.getBody());
     
