@@ -121,7 +121,7 @@ public class ProxyController {
     }
 
     // ------------------------- SOBRECARGA SIMPLE --------------------------
-    private ResponseEntity<?> proxyRequest(HttpServletRequest request,
+    private ResponseEntity<?> proxyRequestWithHeader(HttpServletRequest request,
             String targetBaseUrl,
             boolean requireToken) {
         return proxyRequest(request, targetBaseUrl, requireToken, true); // por defecto sí exige header
