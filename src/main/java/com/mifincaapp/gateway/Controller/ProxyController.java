@@ -104,35 +104,35 @@ public class ProxyController {
     @PutMapping("/productos/{id}")
     public ResponseEntity<?> proxyActualizarProductoConBodyCrudo(
             @PathVariable Long id,
-            @RequestBody byte[] bodyBytes,
+            @RequestBody String body,
             @RequestHeader("USER-MIFINCA-CLIENT") String clientHeader
     ) {
         try {
-            if (bodyBytes == null || bodyBytes.length == 0) {
+            if (body == null || body.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body("El cuerpo JSON está vacío");
             }
-
-            System.out.println("Body a reenviar: " + new String(bodyBytes, StandardCharsets.UTF_8));
-
+    
+            System.out.println("Cuerpo recibido en Gateway: " + body);
+    
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.add("USER-MIFINCA-CLIENT", clientHeader);
-
+            headers.set("USER-MIFINCA-CLIENT", clientHeader);
+    
+            HttpEntity<String> requestEntity = new HttpEntity<>(body, headers);
+    
             String targetUrl = productosApiUrl + "/productos/" + id;
-
-            HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
-
+    
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     targetUrl,
                     HttpMethod.PUT,
-                    entity,
+                    requestEntity,
                     byte[].class
             );
-
+    
             return ResponseEntity.status(response.getStatusCode())
                     .headers(response.getHeaders())
                     .body(response.getBody());
-
+    
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error reenviando PUT /productos/{id}: " + e.getMessage());
