@@ -108,21 +108,23 @@ public class ProxyController {
             @RequestHeader("USER-MIFINCA-CLIENT") String clientHeader
     ) {
         try {
-            // Leer el cuerpo crudo
             byte[] bodyBytes = request.getInputStream().readAllBytes();
     
-            // Construir la URL al microservicio
+            if (bodyBytes.length == 0) {
+                return ResponseEntity.badRequest().body("El cuerpo JSON está vacío");
+            }
+    
+            System.out.println("Body JSON enviado: " + new String(bodyBytes, StandardCharsets.UTF_8));
+    
             String targetUrl = productosApiUrl + "/productos/" + id;
     
-            // Encabezados necesarios
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setContentLength(bodyBytes.length); // ✅ Requerido para que Spring lo procese
             headers.add("USER-MIFINCA-CLIENT", clientHeader);
     
-            // Construir la solicitud HTTP con body y headers
             HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
     
-            // Hacer el PUT al microservicio
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     targetUrl,
                     HttpMethod.PUT,
@@ -130,7 +132,6 @@ public class ProxyController {
                     byte[].class
             );
     
-            // Devolver respuesta del microservicio al cliente original
             return ResponseEntity.status(response.getStatusCode())
                     .headers(response.getHeaders())
                     .body(response.getBody());
@@ -140,6 +141,7 @@ public class ProxyController {
                     .body("Error reenviando PUT /productos/{id}: " + e.getMessage());
         }
     }
+
 
     // ------------------------- RUTAS CON TOKEN --------------------------
 
