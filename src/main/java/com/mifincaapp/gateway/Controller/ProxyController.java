@@ -161,8 +161,10 @@ public class ProxyController {
                         .body("Falta el token en el header Authorization");
             }
 
-            HttpMethod method = HttpMethod.resolve(request.getMethod());
-            if (method == null) {
+            HttpMethod method;
+            try {
+                method = HttpMethod.valueOf(request.getMethod());
+            } catch (IllegalArgumentException ex) {
                 return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
                         .body("Método HTTP no permitido: " + request.getMethod());
             }
