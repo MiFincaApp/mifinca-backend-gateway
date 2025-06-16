@@ -102,24 +102,27 @@ public class ProxyController {
     }
 
     @PutMapping("/productos/{id}")
-    public ResponseEntity<?> proxyActualizarProducto(
+    public ResponseEntity<?> proxyActualizarProductoConBodyCrudo(
             @PathVariable Long id,
-            @RequestBody String productoJson,
+            HttpServletRequest request,
             @RequestHeader("USER-MIFINCA-CLIENT") String clientHeader
     ) {
         try {
-            // Construir URL destino
+            // Leer el cuerpo crudo
+            byte[] bodyBytes = request.getInputStream().readAllBytes();
+    
+            // Construir la URL al microservicio
             String targetUrl = productosApiUrl + "/productos/" + id;
     
-            // Encabezados
+            // Encabezados necesarios
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.add("USER-MIFINCA-CLIENT", clientHeader);
     
-            // Crear entidad con JSON
-            HttpEntity<String> entity = new HttpEntity<>(productoJson, headers);
+            // Construir la solicitud HTTP con body y headers
+            HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
     
-            // Ejecutar PUT a microservicio
+            // Hacer el PUT al microservicio
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     targetUrl,
                     HttpMethod.PUT,
@@ -127,7 +130,7 @@ public class ProxyController {
                     byte[].class
             );
     
-            // Retornar la respuesta al cliente
+            // Devolver respuesta del microservicio al cliente original
             return ResponseEntity.status(response.getStatusCode())
                     .headers(response.getHeaders())
                     .body(response.getBody());
@@ -137,7 +140,6 @@ public class ProxyController {
                     .body("Error reenviando PUT /productos/{id}: " + e.getMessage());
         }
     }
-
 
     // ------------------------- RUTAS CON TOKEN --------------------------
 
