@@ -41,6 +41,11 @@ public class ProxyController {
     public ResponseEntity<?> registroUsuario(HttpServletRequest request) {
         return proxyRequest(request, usuariosApiUrl, false);
     }
+    
+    @RequestMapping("/webhook/**")
+    public ResponseEntity<?> proxyPagos(HttpServletRequest request) {
+        return proxyRequest(request, pagosApiUrl, false);
+    }
 
     @RequestMapping("/productos/**")
     public ResponseEntity<?> proxyProductos(HttpServletRequest request) {
@@ -107,11 +112,6 @@ public class ProxyController {
     @RequestMapping({"/ventas/**", "/finca/**", "/admin/**"})
     public ResponseEntity<?> proxyInternos(HttpServletRequest request) {
         return proxyRequest(request, productosApiUrl, true);
-    }
-
-    @RequestMapping("/pagos/**")
-    public ResponseEntity<?> proxyPagos(HttpServletRequest request) {
-        return proxyRequest(request, pagosApiUrl, true);
     }
 
     // ------------------------- RUTA RAÍZ --------------------------
