@@ -203,7 +203,14 @@ public class ProxyController {
                         .body("Token JWT requerido en Authorization header");
             }
 
-            HttpMethod method = HttpMethod.resolve(request.getMethod().toUpperCase());
+            HttpMethod method;
+            try {
+                method = HttpMethod.valueOf(request.getMethod().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                        .body("Método HTTP no soportado: " + request.getMethod());
+            }
+
             if (method == null) {
                 return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
                         .body("Método HTTP no soportado: " + request.getMethod());
