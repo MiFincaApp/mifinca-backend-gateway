@@ -10,7 +10,6 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
-import org.springframework.web.util.ContentCachingRequestWrapper;
 import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
 
@@ -33,25 +32,25 @@ public class ProxyController {
         this.restTemplate = restTemplate;
     }
 
-    // ------------------------- RUTAS SIN TOKEN --------------------------
+    // --------------------- RUTAS PÚBLICAS ---------------------
 
-    @RequestMapping("/usuarios/login")
+    @PostMapping("/usuarios/login")
     public ResponseEntity<?> loginUsuario(HttpServletRequest request) {
         return proxyRequest(request, usuariosApiUrl, false);
     }
 
-    @RequestMapping("/usuarios/registro")
+    @PostMapping("/usuarios/registro")
     public ResponseEntity<?> registroUsuario(HttpServletRequest request) {
         return proxyRequest(request, usuariosApiUrl, false);
     }
 
     @RequestMapping("/webhook/**")
-    public ResponseEntity<?> proxyPagos(HttpServletRequest request) {
+    public ResponseEntity<?> proxyWebhookPagos(HttpServletRequest request) {
         return proxyRequest(request, pagosApiUrl, false, false);
     }
 
     @RequestMapping("/productos/**")
-    public ResponseEntity<?> proxyProductos(HttpServletRequest request) {
+    public ResponseEntity<?> proxyProductosGenerales(HttpServletRequest request) {
         return proxyRequest(request, productosApiUrl, false);
     }
 
@@ -65,24 +64,24 @@ public class ProxyController {
         try {
             String targetUrl = productosApiUrl + "/productos/finca/" + fincaId;
 
-            MultiValueMap<String, Object> multipartBody = new LinkedMultiValueMap<>();
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
 
             HttpHeaders jsonHeaders = new HttpHeaders();
             jsonHeaders.setContentType(MediaType.APPLICATION_JSON);
-            multipartBody.add("producto", new HttpEntity<>(productoJson, jsonHeaders));
+            body.add("producto", new HttpEntity<>(productoJson, jsonHeaders));
 
             if (imagen != null && !imagen.isEmpty()) {
                 HttpHeaders fileHeaders = new HttpHeaders();
                 fileHeaders.setContentDispositionFormData("imagen", imagen.getOriginalFilename());
-                fileHeaders.setContentType(MediaType.MULTIPART_FORM_DATA);
-                multipartBody.add("imagen", new HttpEntity<>(imagen.getResource(), fileHeaders));
+                fileHeaders.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+                body.add("imagen", new HttpEntity<>(imagen.getResource(), fileHeaders));
             }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-            headers.add("USER-MIFINCA-CLIENT", clientHeader);
+            headers.set("USER-MIFINCA-CLIENT", clientHeader);
 
-            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(multipartBody, headers);
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     targetUrl,
@@ -96,91 +95,87 @@ public class ProxyController {
                     .body(response.getBody());
 
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error reenviando multipart: " + e.getMessage());
+                    .body("Error reenviando producto con imagen: " + e.getMessage());
         }
     }
 
     @PutMapping("/productos/**")
     public ResponseEntity<?> proxyPutProductos(HttpServletRequest request) {
-        return proxyPutRequest(request, productosApiUrl);
+        return proxyPutRequestWithBody(request, productosApiUrl);
     }
 
-
-    // ------------------------- RUTAS CON TOKEN --------------------------
+    // --------------------- RUTAS CON TOKEN ---------------------
 
     @RequestMapping("/usuarios/**")
-    public ResponseEntity<?> proxyUsuarios(HttpServletRequest request) {
+    public ResponseEntity<?> proxyUsuariosPrivado(HttpServletRequest request) {
         return proxyRequest(request, usuariosApiUrl, true);
     }
 
     @RequestMapping({"/ventas/**", "/finca/**", "/admin/**"})
-    public ResponseEntity<?> proxyInternos(HttpServletRequest request) {
+    public ResponseEntity<?> proxyInternas(HttpServletRequest request) {
         return proxyRequest(request, productosApiUrl, true);
     }
 
-    @RequestMapping(method = RequestMethod.GET, path = "")
+    @RequestMapping(value = "", method = RequestMethod.GET)
     public ResponseEntity<?> proxyRoot(HttpServletRequest request) {
         return proxyRequest(request, usuariosApiUrl, false, false);
     }
 
-    // ------------------------- MÉTODO AUXILIAR GENERAL --------------------------
+    // --------------------- MÉTODOS GENERALES ---------------------
 
     private ResponseEntity<?> proxyRequest(HttpServletRequest request,
-                                           String targetBaseUrl,
-                                           boolean requireToken) {
-        return proxyRequest(request, targetBaseUrl, requireToken, true);
+                                           String baseUrl,
+                                           boolean requiereToken) {
+        return proxyRequest(request, baseUrl, requiereToken, true);
     }
 
     private ResponseEntity<?> proxyRequest(HttpServletRequest request,
-                                           String targetBaseUrl,
-                                           boolean requireToken,
-                                           boolean requireCustomHeader) {
+                                           String baseUrl,
+                                           boolean requiereToken,
+                                           boolean requiereHeaderCliente) {
         try {
             String path = request.getRequestURI();
             String query = request.getQueryString();
-            String targetUrl = targetBaseUrl + path + (query != null ? "?" + query : "");
+            String fullUrl = baseUrl + path + (query != null ? "?" + query : "");
 
-            byte[] bodyBytes = getRequestBody(request);
+            byte[] body = getRequestBody(request);
 
             HttpHeaders headers = new HttpHeaders();
-            Enumeration<String> headerNames = request.getHeaderNames();
-            while (headerNames.hasMoreElements()) {
-                String name = headerNames.nextElement();
-                String value = request.getHeader(name);
-                headers.add(name, value);
+            Enumeration<String> names = request.getHeaderNames();
+            while (names.hasMoreElements()) {
+                String name = names.nextElement();
+                headers.set(name, request.getHeader(name));
             }
 
-            if (requireCustomHeader) {
-                boolean hasCustomHeader = headers.keySet().stream()
-                        .anyMatch(h -> h.equalsIgnoreCase("USER-MIFINCA-CLIENT"));
-                if (!hasCustomHeader) {
+            if (requiereHeaderCliente) {
+                if (!headers.containsKey("USER-MIFINCA-CLIENT")) {
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                             .body("Falta el header requerido: USER-MIFINCA-CLIENT");
                 }
             }
 
-            if (requireToken && !headers.containsKey("Authorization")) {
+            if (requiereToken && !headers.containsKey("Authorization")) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body("Token JWT requerido en Authorization header");
+                        .body("Falta el token en el header Authorization");
             }
 
-            HttpMethod method;
-            try {
-                method = HttpMethod.valueOf(request.getMethod().toUpperCase());
-            } catch (IllegalArgumentException e) {
+            HttpMethod method = HttpMethod.resolve(request.getMethod());
+            if (method == null) {
                 return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
-                        .body("Método HTTP no soportado: " + request.getMethod());
+                        .body("Método HTTP no permitido: " + request.getMethod());
             }
 
-            System.out.println("➡️ Reenviando a: " + targetUrl);
-            System.out.println("➡️ Método: " + method);
-            if (bodyBytes.length > 0) {
-                System.out.println("➡️ Cuerpo: " + new String(bodyBytes, StandardCharsets.UTF_8));
+            HttpEntity<byte[]> entity = new HttpEntity<>(body, headers);
+
+            System.out.println("🔁 Reenviando a: " + fullUrl);
+            System.out.println("🔸 Método: " + method);
+            if (body.length > 0) {
+                System.out.println("📦 Body:\n" + new String(body, StandardCharsets.UTF_8));
             }
 
-            HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
-            ResponseEntity<byte[]> response = restTemplate.exchange(targetUrl, method, entity, byte[].class);
+            ResponseEntity<byte[]> response = restTemplate.exchange(fullUrl, method, entity, byte[].class);
 
             return ResponseEntity.status(response.getStatusCode())
                     .headers(response.getHeaders())
@@ -189,7 +184,51 @@ public class ProxyController {
         } catch (Exception ex) {
             ex.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error al redirigir la petición: " + ex.getMessage());
+                    .body("Error al reenviar: " + ex.getMessage());
+        }
+    }
+
+    private ResponseEntity<?> proxyPutRequestWithBody(HttpServletRequest request, String baseUrl) {
+        try {
+            String path = request.getRequestURI();
+            String query = request.getQueryString();
+            String fullUrl = baseUrl + path + (query != null ? "?" + query : "");
+
+            byte[] bodyBytes = getRequestBody(request);
+
+            if (bodyBytes == null || bodyBytes.length == 0) {
+                return ResponseEntity.badRequest().body("El cuerpo PUT está vacío");
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            Enumeration<String> headerNames = request.getHeaderNames();
+            while (headerNames.hasMoreElements()) {
+                String name = headerNames.nextElement();
+                headers.set(name, request.getHeader(name));
+            }
+
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
+
+            System.out.println("🔄 Reenviando PUT a: " + fullUrl);
+            System.out.println("📦 Body:\n" + new String(bodyBytes, StandardCharsets.UTF_8));
+
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    fullUrl,
+                    HttpMethod.PUT,
+                    entity,
+                    byte[].class
+            );
+
+            return ResponseEntity.status(response.getStatusCode())
+                    .headers(response.getHeaders())
+                    .body(response.getBody());
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al reenviar PUT: " + ex.getMessage());
         }
     }
 
@@ -198,55 +237,6 @@ public class ProxyController {
             return is.readAllBytes();
         } catch (Exception e) {
             return new byte[0];
-        }
-    }
-
-    private ResponseEntity<?> proxyPutRequestWithBody(HttpServletRequest request, String baseUrl) {
-        try {
-            // Envolver el request para permitir múltiples lecturas del body
-            ContentCachingRequestWrapper wrappedRequest = new ContentCachingRequestWrapper(request);
-            wrappedRequest.getParameterMap(); // fuerza la caché del body
-    
-            String path = request.getRequestURI();
-            String query = request.getQueryString();
-            String fullUrl = baseUrl + path + (query != null ? "?" + query : "");
-    
-            byte[] bodyBytes = wrappedRequest.getContentAsByteArray();
-    
-            if (bodyBytes == null || bodyBytes.length == 0) {
-                return ResponseEntity.badRequest().body("❌ El cuerpo JSON está vacío");
-            }
-    
-            HttpHeaders headers = new HttpHeaders();
-            Enumeration<String> headerNames = request.getHeaderNames();
-            while (headerNames.hasMoreElements()) {
-                String name = headerNames.nextElement();
-                String value = request.getHeader(name);
-                headers.add(name, value);
-            }
-    
-            headers.setContentType(MediaType.APPLICATION_JSON); // asegúrate que sea JSON
-    
-            HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
-    
-            System.out.println("🔁 Reenviando PUT a: " + fullUrl);
-            System.out.println("📦 Body enviado:\n" + new String(bodyBytes, StandardCharsets.UTF_8));
-    
-            ResponseEntity<byte[]> response = restTemplate.exchange(
-                    fullUrl,
-                    HttpMethod.PUT,
-                    entity,
-                    byte[].class
-            );
-    
-            return ResponseEntity.status(response.getStatusCode())
-                    .headers(response.getHeaders())
-                    .body(response.getBody());
-    
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("❌ Error reenviando PUT genérico: " + ex.getMessage());
         }
     }
 }
