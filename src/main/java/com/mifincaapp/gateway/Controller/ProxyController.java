@@ -108,31 +108,31 @@ public class ProxyController {
             @RequestHeader("USER-MIFINCA-CLIENT") String clientHeader
     ) {
         try {
-            if (bodyBytes.length == 0) {
+            if (bodyBytes == null || bodyBytes.length == 0) {
                 return ResponseEntity.badRequest().body("El cuerpo JSON está vacío");
             }
-    
-            System.out.println("Body: " + new String(bodyBytes, StandardCharsets.UTF_8));
-    
+
+            System.out.println("Body a reenviar: " + new String(bodyBytes, StandardCharsets.UTF_8));
+
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.add("USER-MIFINCA-CLIENT", clientHeader);
-    
-            HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
-    
+
             String targetUrl = productosApiUrl + "/productos/" + id;
-    
+
+            HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
+
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     targetUrl,
                     HttpMethod.PUT,
                     entity,
                     byte[].class
             );
-    
+
             return ResponseEntity.status(response.getStatusCode())
                     .headers(response.getHeaders())
                     .body(response.getBody());
-    
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error reenviando PUT /productos/{id}: " + e.getMessage());
