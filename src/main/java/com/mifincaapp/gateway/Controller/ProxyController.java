@@ -130,65 +130,56 @@ public class ProxyController {
     // ------------------------- MÉTODO GENERAL --------------------------
     private ResponseEntity<?> proxyRequest(HttpServletRequest request,
                                            String targetBaseUrl,
-                                           boolean requireToken,
-                                           boolean requireCustomHeader) {
+                                           boolean requireToken) {
         try {
             // Construir la URL de destino
             String path = request.getRequestURI();
             String query = request.getQueryString();
             String targetUrl = targetBaseUrl + path + (query != null ? "?" + query : "");
-    
-            // Leer cuerpo como bytes
+
+            // Leer el cuerpo como bytes (soporta raw, form-data, multipart, etc.)
             InputStream is = request.getInputStream();
             byte[] bodyBytes = is.readAllBytes();
-    
+
             // Copiar headers originales
             HttpHeaders headers = new HttpHeaders();
             Enumeration<String> headerNames = request.getHeaderNames();
-    
+
             while (headerNames.hasMoreElements()) {
                 String name = headerNames.nextElement();
                 String value = request.getHeader(name);
                 headers.add(name, value);
             }
-    
-            // Establecer Content-Type si no lo incluyó el navegador/lib cliente
-            String contentType = request.getContentType();
-            if (contentType != null && !headers.containsKey(HttpHeaders.CONTENT_TYPE)) {
-                headers.setContentType(MediaType.parseMediaType(contentType));
+
+            // Validar que venga el header USER-MIFINCA-CLIENT (case-insensitive)
+            boolean hasCustomHeader = headers.keySet().stream()
+                .anyMatch(h -> h.equalsIgnoreCase("USER-MIFINCA-CLIENT"));
+
+            if (!hasCustomHeader) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Falta el header requerido: USER-MIFINCA-CLIENT");
             }
-    
-            // Validar USER-MIFINCA-CLIENT si es necesario
-            if (requireCustomHeader) {
-                boolean hasCustomHeader = headers.keySet().stream()
-                        .anyMatch(h -> h.equalsIgnoreCase("USER-MIFINCA-CLIENT"));
-                if (!hasCustomHeader) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body("Falta el header requerido: USER-MIFINCA-CLIENT");
-                }
-            }
-    
-            // Validar Authorization si se requiere
+
+            // Validar token si es necesario
             if (requireToken && !headers.containsKey("Authorization")) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body("Token JWT requerido en Authorization header");
             }
-    
+
             // Detectar método HTTP
-            HttpMethod method = HttpMethod.resolve(request.getMethod().toUpperCase());
-            if (method == null) {
+            HttpMethod method;
+            try {
+                method = HttpMethod.valueOf(request.getMethod().toUpperCase());
+            } catch (IllegalArgumentException e) {
                 return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
                         .body("Método HTTP no soportado: " + request.getMethod());
             }
-    
-            // Crear entidad con o sin body
-            HttpEntity<?> entity = (bodyBytes.length > 0)
-                    ? new HttpEntity<>(bodyBytes, headers)
-                    : new HttpEntity<>(headers);
-    
-            // Enviar petición
+
+            // Crear entidad con body binario + headers
+            HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
+
+            // Redireccionar la petición
             return restTemplate.exchange(targetUrl, method, entity, byte[].class);
-    
         } catch (Exception ex) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error al redirigir la petición: " + ex.getMessage());
