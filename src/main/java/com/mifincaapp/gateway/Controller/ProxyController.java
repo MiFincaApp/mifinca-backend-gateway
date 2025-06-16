@@ -45,12 +45,12 @@ public class ProxyController {
 
     @RequestMapping("/webhook/**")
     public ResponseEntity<?> proxyPagos(HttpServletRequest request) {
-        return proxyRequest(request, pagosApiUrl, false);
+        return proxyRequest(request, pagosApiUrl, false, false);
     }
 
     @RequestMapping("/productos/**")
     public ResponseEntity<?> proxyProductos(HttpServletRequest request) {
-        return proxyRequest(request, productosApiUrl, false, false);
+        return proxyRequest(request, productosApiUrl, false);
     }
 
     @PostMapping(value = "/productos/finca/{fincaId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
