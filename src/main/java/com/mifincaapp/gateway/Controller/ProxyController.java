@@ -46,7 +46,7 @@ public class ProxyController {
     public ResponseEntity<?> proxyProductos(HttpServletRequest request) {
         return proxyRequest(request, productosApiUrl, false);
     }
-
+    
     @PostMapping(value = "/productos/finca/{fincaId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> proxyCrearProducto(
             @PathVariable Long fincaId,
@@ -97,7 +97,6 @@ public class ProxyController {
                     .body("Error reenviando multipart: " + e.getMessage());
         }
     }
-
 
     // ------------------------- RUTAS CON TOKEN --------------------------
     @RequestMapping("/usuarios/**")
