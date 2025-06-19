@@ -72,12 +72,10 @@ public class ProxyController {
     
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
     
-            // Producto JSON
             HttpHeaders jsonHeaders = new HttpHeaders();
             jsonHeaders.setContentType(MediaType.APPLICATION_JSON);
             body.add("producto", new HttpEntity<>(productoJson, jsonHeaders));
     
-            // Imagen, si existe
             if (imagen != null && !imagen.isEmpty()) {
                 HttpHeaders fileHeaders = new HttpHeaders();
                 fileHeaders.setContentDispositionFormData("imagen", imagen.getOriginalFilename());
@@ -93,14 +91,12 @@ public class ProxyController {
                 body.add("imagen", new HttpEntity<>(byteArrayResource, fileHeaders));
             }
     
-            // Headers generales
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.MULTIPART_FORM_DATA);
             headers.set("USER-MIFINCA-CLIENT", clientHeader);
     
             HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
     
-            // Enviar al microservicio
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     targetUrl,
                     HttpMethod.POST,
@@ -118,7 +114,6 @@ public class ProxyController {
                     .body("Error reenviando producto con imagen: " + e.getMessage());
         }
     }
-
     @PutMapping("/productos/**")
     public ResponseEntity<?> proxyPutProductos(HttpServletRequest request) {
         return proxyPutRequestWithBody(request, productosApiUrl);
