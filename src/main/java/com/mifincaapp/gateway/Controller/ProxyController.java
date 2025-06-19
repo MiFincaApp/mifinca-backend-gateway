@@ -221,7 +221,12 @@ public class ProxyController {
                         .body("Método HTTP no permitido: " + request.getMethod());
             }
 
-            HttpEntity<byte[]> entity = new HttpEntity<>(body, headers);
+            HttpEntity<?> entity;
+            if (method == HttpMethod.DELETE && (body == null || body.length == 0)) {
+                entity = new HttpEntity<>(headers); // DELETE sin body
+            } else {
+                entity = new HttpEntity<>(body, headers); // otros métodos con body
+            }
 
             System.out.println("🔁 Reenviando a: " + fullUrl);
             System.out.println("🔸 Método: " + method);
