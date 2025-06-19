@@ -33,7 +33,6 @@ public class ProxyController {
     }
 
     // --------------------- RUTAS PÚBLICAS ---------------------
-
     @PostMapping("/usuarios/login")
     public ResponseEntity<?> loginUsuario(HttpServletRequest request) {
         return proxyRequest(request, usuariosApiUrl, false);
@@ -46,6 +45,11 @@ public class ProxyController {
 
     @RequestMapping("/webhook/**")
     public ResponseEntity<?> proxyWebhookPagos(HttpServletRequest request) {
+        return proxyRequest(request, pagosApiUrl, false, false);
+    }
+
+    @RequestMapping("/wompi/**")
+    public ResponseEntity<?> proxyWompi(HttpServletRequest request) {
         return proxyRequest(request, pagosApiUrl, false, false);
     }
 
@@ -107,7 +111,47 @@ public class ProxyController {
     }
 
     // --------------------- RUTAS CON TOKEN ---------------------
+    @PutMapping("/productos/{id}")
+    public ResponseEntity<?> proxyActualizarProductoConBodyCrudo(
+            @PathVariable Long id,
+            HttpServletRequest request,
+            @RequestHeader("USER-MIFINCA-CLIENT") String clientHeader
+    ) {
+        try {
+            // Leer el cuerpo crudo
+            byte[] bodyBytes = request.getInputStream().readAllBytes();
 
+            // Construir la URL al microservicio
+            String targetUrl = productosApiUrl + "/productos/" + id;
+
+            // Encabezados necesarios
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.add("USER-MIFINCA-CLIENT", clientHeader);
+
+            // Construir la solicitud HTTP con body y headers
+            HttpEntity<byte[]> entity = new HttpEntity<>(bodyBytes, headers);
+
+            // Hacer el PUT al microservicio
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    targetUrl,
+                    HttpMethod.PUT,
+                    entity,
+                    byte[].class
+            );
+
+            // Devolver respuesta del microservicio al cliente original
+            return ResponseEntity.status(response.getStatusCode())
+                    .headers(response.getHeaders())
+                    .body(response.getBody());
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error reenviando PUT /productos/{id}: " + e.getMessage());
+        }
+    }
+
+    // --------------------- RUTAS CON TOKEN ---------------------
     @RequestMapping("/usuarios/**")
     public ResponseEntity<?> proxyUsuariosPrivado(HttpServletRequest request) {
         return proxyRequest(request, usuariosApiUrl, true);
@@ -124,17 +168,16 @@ public class ProxyController {
     }
 
     // --------------------- MÉTODOS GENERALES ---------------------
-
     private ResponseEntity<?> proxyRequest(HttpServletRequest request,
-                                           String baseUrl,
-                                           boolean requiereToken) {
+            String baseUrl,
+            boolean requiereToken) {
         return proxyRequest(request, baseUrl, requiereToken, true);
     }
 
     private ResponseEntity<?> proxyRequest(HttpServletRequest request,
-                                           String baseUrl,
-                                           boolean requiereToken,
-                                           boolean requiereHeaderCliente) {
+            String baseUrl,
+            boolean requiereToken,
+            boolean requiereHeaderCliente) {
         try {
             String path = request.getRequestURI();
             String query = request.getQueryString();
