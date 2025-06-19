@@ -67,37 +67,49 @@ public class ProxyController {
     ) {
         try {
             String targetUrl = productosApiUrl + "/productos/finca/" + fincaId;
-
+    
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-
+    
+            // Producto JSON
             HttpHeaders jsonHeaders = new HttpHeaders();
             jsonHeaders.setContentType(MediaType.APPLICATION_JSON);
             body.add("producto", new HttpEntity<>(productoJson, jsonHeaders));
-
+    
+            // Imagen, si existe
             if (imagen != null && !imagen.isEmpty()) {
                 HttpHeaders fileHeaders = new HttpHeaders();
                 fileHeaders.setContentDispositionFormData("imagen", imagen.getOriginalFilename());
-                fileHeaders.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-                body.add("imagen", new HttpEntity<>(imagen.getResource(), fileHeaders));
+                fileHeaders.setContentType(MediaType.parseMediaType(imagen.getContentType()));
+    
+                ByteArrayResource byteArrayResource = new ByteArrayResource(imagen.getBytes()) {
+                    @Override
+                    public String getFilename() {
+                        return imagen.getOriginalFilename();
+                    }
+                };
+    
+                body.add("imagen", new HttpEntity<>(byteArrayResource, fileHeaders));
             }
-
+    
+            // Headers generales
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.MULTIPART_FORM_DATA);
             headers.set("USER-MIFINCA-CLIENT", clientHeader);
-
+    
             HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
-
+    
+            // Enviar al microservicio
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     targetUrl,
                     HttpMethod.POST,
                     requestEntity,
                     byte[].class
             );
-
+    
             return ResponseEntity.status(response.getStatusCode())
                     .headers(response.getHeaders())
                     .body(response.getBody());
-
+    
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
