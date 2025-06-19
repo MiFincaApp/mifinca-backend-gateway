@@ -72,9 +72,8 @@ public class ProxyController {
     
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
     
-            HttpHeaders jsonHeaders = new HttpHeaders();
-            jsonHeaders.setContentType(MediaType.APPLICATION_JSON);
-            body.add("producto", new HttpEntity<>(productoJson, jsonHeaders));
+            // Enviar producto como String plano, no HttpEntity
+            body.add("producto", productoJson);
     
             if (imagen != null && !imagen.isEmpty()) {
                 HttpHeaders fileHeaders = new HttpHeaders();
@@ -114,6 +113,7 @@ public class ProxyController {
                     .body("Error reenviando producto con imagen: " + e.getMessage());
         }
     }
+    
     @PutMapping("/productos/**")
     public ResponseEntity<?> proxyPutProductos(HttpServletRequest request) {
         return proxyPutRequestWithBody(request, productosApiUrl);
