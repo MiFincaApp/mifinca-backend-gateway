@@ -23,17 +23,18 @@ public class CachedBodyFilter implements Filter {
         String contentType = httpRequest.getContentType();
 
         // Aplicar filtro solo si:
-        // - Método es POST o PUT
-        // - Y Content-Type contiene "application/json"
         boolean esJson = contentType != null && contentType.contains("application/json");
-        boolean esPostOPut = "POST".equalsIgnoreCase(method) || "PUT".equalsIgnoreCase(method);
+        boolean esPostPutPatch = "POST".equalsIgnoreCase(method) ||
+                                 "PUT".equalsIgnoreCase(method) ||
+                                 "PATCH".equalsIgnoreCase(method);
 
-        if (esJson && esPostOPut) {
+        if (esJson && esPostPutPatch) {
             CachedBodyHttpServletRequest cachedRequest = new CachedBodyHttpServletRequest(httpRequest);
             chain.doFilter(cachedRequest, response);
         } else {
-            // Evita envolver DELETE o multipart/form-data
+            // 🚫 NO envolver DELETE ni multipart ni nada más
             chain.doFilter(request, response);
         }
     }
 }
+
