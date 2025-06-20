@@ -192,7 +192,7 @@ public class ProxyController {
             String query = request.getQueryString();
             String fullUrl = baseUrl + path + (query != null ? "?" + query : "");
 
-            byte[] body = getRequestBody(request);
+            byte[] bodyBytes = getRequestBody(request);
 
             HttpHeaders headers = new HttpHeaders();
             Enumeration<String> names = request.getHeaderNames();
@@ -244,6 +244,19 @@ public class ProxyController {
             ex.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error al reenviar: " + ex.getMessage());
+        }
+    }
+
+    // ✅ Aquí está el método corregido
+    private byte[] getRequestBody(HttpServletRequest request) {
+        try {
+            String method = request.getMethod();
+            if ("DELETE".equalsIgnoreCase(method)) {
+                return new byte[0]; // 🔐 No leer body en DELETE
+            }
+            return request.getInputStream().readAllBytes();
+        } catch (Exception e) {
+            return new byte[0];
         }
     }
 
