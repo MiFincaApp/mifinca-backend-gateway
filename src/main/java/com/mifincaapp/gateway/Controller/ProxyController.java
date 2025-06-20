@@ -222,10 +222,10 @@ public class ProxyController {
             }
 
             HttpEntity<?> entity;
-            if (method == HttpMethod.DELETE && (body == null || body.length == 0)) {
-                entity = new HttpEntity<>(headers); // DELETE sin body
+            if (method == HttpMethod.DELETE) {
+                entity = new HttpEntity<>(headers); // 🚫 nunca enviar body con DELETE
             } else {
-                entity = new HttpEntity<>(body, headers); // otros métodos con body
+                entity = new HttpEntity<>(body.length > 0 ? body : null, headers);
             }
 
             System.out.println("🔁 Reenviando a: " + fullUrl);
